@@ -75,9 +75,9 @@ go test ./...
 go vet ./...
 ```
 
-The GitHub workflow runs the offline Go tests on pushes and pull requests. Before pushing, review `git status --short` to confirm no newly added source path contains credentials or research data. To publish this directory as a separate repository, create an empty GitHub repository, then:
+The GitHub workflow runs the offline Go tests on pushes and pull requests. Before pushing, review `git status --short` to confirm no newly added source path contains credentials or research data. To publish this directory as a separate repository, create an empty GitHub repository, add your SSH public key in [GitHub SSH key settings](https://github.com/settings/keys), then:
 
 ```powershell
-git remote add origin https://github.com/YOUR-ACCOUNT/YOUR-REPO.git
+git remote add origin git@github.com:YOUR-ACCOUNT/YOUR-REPO.git
 git push -u origin main
 ```
