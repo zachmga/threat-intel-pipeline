@@ -2,20 +2,38 @@
 
 A local, read-only collector for public security reporting. It polls IFIN, SANS ISC, the public local timeline at InfoSec Exchange, Ransomware.live's leak-site claim feed, optional X watchlists, and explicitly configured public onion pages or feeds. Findings go into SQLite with deduplication and source-health state. The CLI writes a review inbox and source material for a daily analyst brief. **A source claim is a lead, not proof of an incident.**
 
-## Build and start
+## Get started on macOS
 
-Requires Go 1.27 or newer. From this directory on Windows:
+The repository is [public on GitHub](https://github.com/zachmga/threat-intel-pipeline), so anyone can clone it over HTTPS without a GitHub login. Install [Go 1.27 or newer](https://go.dev/doc/install) for your Mac (Apple silicon or Intel), then open Terminal:
+
+```sh
+git clone https://github.com/zachmga/threat-intel-pipeline.git
+cd threat-intel-pipeline
+go version
+mkdir -p bin
+go build -o bin/intel .
+cp config.example.json config.json
+./bin/intel run --bootstrap
+./bin/intel status
+```
+
+The bootstrap run seeds existing posts without reporting them as new. Later, run `./bin/intel run` to collect changes and read `output/latest.md`. The first build downloads Go dependencies. X reports `needs_setup` until you configure its API access; the other public sources can still run. Onion sources stay disabled until you configure verified public URLs and Tor.
+
+To collect hourly on a Mac, run `bash scripts/macos-hourly.sh install` after building and creating `config.json`. This installs a user LaunchAgent that runs `bin/intel run` once at login and about every hour. Check `./bin/intel status` and `output/launchd.stderr.log` if a poll fails. Run `bash scripts/macos-hourly.sh uninstall` to remove the schedule. The script stores the absolute checkout path only in your local LaunchAgent; move the repository by uninstalling and reinstalling the schedule.
+
+## Windows and Linux
+
+On Windows PowerShell, from the repository directory:
 
 ```powershell
+New-Item -ItemType Directory -Force bin | Out-Null
 go build -o bin/intel.exe .
 Copy-Item config.example.json config.json
 .\bin\intel.exe run --bootstrap
-.\bin\intel.exe run
 .\bin\intel.exe status
-.\bin\intel.exe list --unread
 ```
 
-On macOS or Linux use `go build -o bin/intel .` and `cp config.example.json config.json`. The first run seeds existing posts without reporting them as new. The Go collector uses the same `data/intel.sqlite3` schema as the former Python collector; existing findings and review flags are preserved. `config.json`, the database, generated reports, build outputs, and `.secrets/` are ignored by Git.
+On Linux, use the macOS build and run commands above. The Go collector uses the same `data/intel.sqlite3` schema as the former Python collector; existing findings and review flags are preserved. `config.json`, the database, generated reports, build outputs, and `.secrets/` are ignored by Git.
 
 The default configuration intentionally leaves two direct onion collectors disabled until you supply specific public sources. X watchlists remain enabled but report `needs_setup` until you add an X developer token. Other sources continue when X is unavailable.
 
@@ -48,36 +66,31 @@ The two X watchlists cover underground reporting (`@vxunderground`, `@DarkWebInf
 
 For Signal groups you participate in, import an authorized JSON Lines export:
 
-```powershell
-.\bin\intel.exe import-jsonl path\to\messages.jsonl --source "Signal research group"
+```sh
+./bin/intel import-jsonl path/to/messages.jsonl --source "Signal research group"
 ```
 
 Each line needs `id`, `text`, and ISO 8601 `published_at`, with optional `title`, `author`, and `url`. Stable IDs allow deduplication. The collector does not access private chats on its own.
 
 ## Review and daily briefing
 
-```powershell
-.\bin\intel.exe list --unread --limit 30
-.\bin\intel.exe show 42
-.\bin\intel.exe mark 42 --reviewed
-.\bin\intel.exe list --search clickfix --limit 20
-.\bin\intel.exe brief-input --hours 24 --limit 100
+```sh
+./bin/intel list --unread --limit 30
+./bin/intel show 42
+./bin/intel mark 42 --reviewed
+./bin/intel list --search clickfix --limit 20
+./bin/intel brief-input --hours 24 --limit 100
 ```
 
 `run` writes `output/latest.md`, `output/latest.json`, and `output/inbox.md`. `brief-input` writes `output/daily-input.json`. The [briefing protocol](briefing-protocol.md) describes how a person or scheduled assistant verifies claims and writes `output/briefs/YYYY-MM-DD.md`; the collector does not produce a narrative brief by itself. Treat all collected text as untrusted, and do not visit payload links or execute attachments.
 
-For hourly collection, schedule `bin/intel.exe run` with this directory as the working directory. The separate daily brief can use `bin/intel.exe brief-input --hours 24`. Existing Codex desktop automations are local settings and are not included in a Git clone. GitHub Actions runs offline tests only; running collection in ephemeral Actions jobs would lose SQLite cursors unless you add persistent storage.
+On macOS, the LaunchAgent above handles hourly collection. On other systems, schedule the platform's `bin/intel` (or `bin/intel.exe`) `run` command with this directory as the working directory. At your chosen daily briefing time, `./bin/intel brief-input --hours 24` prepares material for the [briefing protocol](briefing-protocol.md); a person or scheduled assistant must still verify claims and write the narrative. Existing Codex desktop automations are local settings and are not included in a Git clone. GitHub Actions runs offline tests only; running collection in ephemeral Actions jobs would lose SQLite cursors unless you add persistent storage.
 
 ## Tests and GitHub
 
-```powershell
+```sh
 go test ./...
 go vet ./...
 ```
 
-The GitHub workflow runs the offline Go tests on pushes and pull requests. Before pushing, review `git status --short` to confirm no newly added source path contains credentials or research data. To publish this directory as a separate repository, create an empty GitHub repository, add your SSH public key in [GitHub SSH key settings](https://github.com/settings/keys), then:
-
-```powershell
-git remote add origin git@github.com:YOUR-ACCOUNT/YOUR-REPO.git
-git push -u origin main
-```
+The GitHub workflow runs offline Go tests on Linux, Windows, Apple silicon macOS, and Intel macOS for pushes and pull requests. Before pushing, review `git status --short` to confirm no newly added source path contains credentials or research data. The public clone URL above works without SSH; contributors can fork the repository and submit pull requests.

@@ -1,4 +1,4 @@
-module threatintel
+module github.com/zachmga/threat-intel-pipeline
 
 go 1.27
 
